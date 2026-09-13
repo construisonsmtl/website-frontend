@@ -19,6 +19,14 @@ exports.createSchemaCustomization = ({ actions }: any) => {
             isFederal: Boolean
             isVisible: Boolean
         }
+
+        type STRAPI_POLICY_SUPPORT implements Node {
+            election: STRAPI_ELECTION
+        }
+
+        type STRAPI_ELECTION implements Node {
+            name: String
+        }
     `);
 };
 

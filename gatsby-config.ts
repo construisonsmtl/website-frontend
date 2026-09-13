@@ -104,7 +104,25 @@ const config: GatsbyConfig = {
                         },
                     },
                     {
+                        singularName: "election",
+                        pluginOptions: {
+                            i18n: {
+                                locale: "all",
+                            },
+                        },
+                    },
+                    {
                         singularName: "policy-support",
+                        queryParams: {
+                            populate: {
+                                election: {
+                                    populate: "*",
+                                },
+                                political_party: {
+                                    populate: "*",
+                                },
+                            },
+                        },
                         pluginOptions: {
                             i18n: {
                                 locale: "all",
@@ -201,6 +219,9 @@ const config: GatsbyConfig = {
                                                 },
                                                 policy_supports: {
                                                     populate: {
+                                                        election: {
+                                                            populate: "*",
+                                                        },
                                                         political_parties: {
                                                             populate: "*",
                                                         },

@@ -84,6 +84,13 @@ export type PolicyCategoryData = {
     policies?: PolicyData[];
 };
 
+export type ElectionData = {
+    id: string;
+    name: string;
+    policies?: PolicyData[];
+    policy_supports?: PolicySupportData[];
+};
+
 export type CityPolicyQuestion = {
     question: string;
     displayForMontreal: boolean;
@@ -137,10 +144,12 @@ export type PoliticalPartyData = {
 };
 
 export type PolicySupportData = {
+    id: string;
     quote: string;
     source: string;
     author: string;
     political_party?: PoliticalPartyData;
     policy?: PolicyData;
+    election?: ElectionData;
     fullSupport: boolean;
 };
