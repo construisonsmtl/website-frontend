@@ -85,8 +85,10 @@ export type PolicyCategoryData = {
 };
 
 export type ElectionData = {
+    id: string;
     name: string;
     policies?: PolicyData[];
+    policy_supports?: PolicySupportData[];
 };
 
 export type CityPolicyQuestion = {
@@ -142,6 +144,7 @@ export type PoliticalPartyData = {
 };
 
 export type PolicySupportData = {
+    id: string;
     quote: string;
     source: string;
     author: string;

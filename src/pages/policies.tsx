@@ -11,6 +11,7 @@ import {
     Nodes,
     PolicyCategoryData,
     PolicyData,
+    ElectionData,
     SocialLinks,
     StrapiImage,
 } from "../helpers/content-types";
@@ -24,10 +25,10 @@ type PoliciesPageData = {
         seoImage: StrapiImage;
         policy_categories: PolicyCategoryData[];
     };
+    elections: Nodes<ElectionData>;
     socials: SocialLinks;
     involvementCallout: InvolvementData;
 };
-
 export const Head = ({ data, pageContext }: any) => {
     const content = data.content;
 
@@ -69,6 +70,18 @@ const PoliciesPage = ({ data, location }: PageProps<PoliciesPageData>) => {
         );
     }, [location.search]);
 
+    const activeElectionFilters = useMemo(() => {
+        const params = new URLSearchParams(location.search);
+        const raw = params.get("election");
+        if (!raw) return new Set<string>();
+        return new Set(raw.split(",").filter(Boolean));
+    }, [location.search]);
+
+    const showElectionFilters = useMemo(() => {
+        const params = new URLSearchParams(location.search);
+        return params.get("hidden") === "false";
+    }, [location.search]);
+
     const toggleFilter = useCallback(
         (filter: string) => {
             const next = new Set(activeFilters);
@@ -90,6 +103,27 @@ const PoliciesPage = ({ data, location }: PageProps<PoliciesPageData>) => {
         [activeFilters, location.search, location.pathname],
     );
 
+    const toggleElectionFilter = useCallback(
+        (electionId: string) => {
+            const next = new Set(activeElectionFilters);
+            if (next.has(electionId)) {
+                next.delete(electionId);
+            } else {
+                next.add(electionId);
+            }
+            const params = new URLSearchParams(location.search);
+            if (next.size > 0) {
+                params.set("election", Array.from(next).join(","));
+            } else {
+                params.delete("election");
+            }
+            const query = params.toString();
+            const newUrl = `${location.pathname}${query ? `?${query}` : ""}`;
+            navigate(newUrl, { replace: true });
+        },
+        [activeElectionFilters, location.search, location.pathname],
+    );
+
     const matchesFilter = (policy: PolicyData) => {
         if (activeFilters.size === 0) return true;
         if (activeFilters.has("municipal") && policy.isMunicipal) return true;
@@ -102,12 +136,48 @@ const PoliciesPage = ({ data, location }: PageProps<PoliciesPageData>) => {
     const policyCategories = content.policy_categories
         .map((cat) => ({
             ...cat,
-            policies: cat.policies?.filter(
-                (policy) => policy.isVisible !== false && matchesFilter(policy),
-            ),
+            policies: cat.policies?.filter((policy) => policy.isVisible !== false && matchesFilter(policy)),
         }))
         .filter((cat) => cat.policies && cat.policies.length > 0)
         .sort((a, b) => a.description > b.description ? 1 : -1);
+
+    const elections = data.elections.nodes;
+
+    const selectedElections = useMemo(
+        () => elections.filter((election) => activeElectionFilters.has(election.id)),
+        [elections, activeElectionFilters],
+    );
+
+    // Parties (columns) to display, in order of first appearance across selected elections
+    const supportParties = useMemo(() => {
+        const parties: { name: string; shortName: string; color: string }[] = [];
+        const seen = new Set<string>();
+        for (const election of selectedElections) {
+            for (const support of election.policy_supports ?? []) {
+                const party = support.political_party;
+                if (party && !seen.has(party.name)) {
+                    seen.add(party.name);
+                    parties.push(party);
+                }
+            }
+        }
+        return parties;
+    }, [selectedElections]);
+
+    const getPolicySupportForParty = useCallback(
+        (policy: PolicyData, partyName: string, electionId: string) => {
+            const election = elections.find((e) => e.id === electionId);
+            const electionSupportIds = new Set((election?.policy_supports ?? []).map((s) => s.id));
+            return policy.policy_supports?.find(
+                (support) =>
+                    electionSupportIds.has(support.id) &&
+                    support.political_party?.name === partyName,
+            );
+        },
+        [elections],
+    );
+
+    const showSupportColumns = selectedElections.length > 0 && supportParties.length > 0;
 
     return (
         <div>
@@ -149,6 +219,23 @@ const PoliciesPage = ({ data, location }: PageProps<PoliciesPageData>) => {
                                 </button>
                             ))}
                         </div>
+                        {showElectionFilters && elections.length > 0 && (
+                            <div className="flex flex-wrap gap-2 pb-4">
+                                {elections.map((election) => (
+                                    <button
+                                        key={election.id}
+                                        onClick={() => toggleElectionFilter(election.id)}
+                                        className={`px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200 ${
+                                            activeElectionFilters.has(election.id)
+                                                ? "bg-blue-600 text-white"
+                                                : "bg-gray-200 text-gray-800 hover:bg-gray-300"
+                                        }`}
+                                    >
+                                        {election.name}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                         {policyCategories.map((category: PolicyCategoryData, index: number) => {
                             return (
                                 <div className="py-4 lg:py-8" key={"cat-" + index}>
@@ -161,11 +248,11 @@ const PoliciesPage = ({ data, location }: PageProps<PoliciesPageData>) => {
                                         return (
                                             <div
                                                 id={policy.identifier ? `policy-${policy.identifier}` : undefined}
-                                                className="grid grid-cols-12 lg:gap-2 rounded-xl bg-white shadow-lg lg:shadow-none lg:bg-transparent lg:border-none p-4 mb-4 lg:p-0 lg:my-0 border-gray-300 border"
+                                                className={`grid grid-cols-12 lg:gap-2 rounded-xl bg-white shadow-lg lg:shadow-none lg:bg-transparent lg:border-none p-4 mb-4 lg:p-0 lg:my-0 border-gray-300 border ${showSupportColumns ? "items-stretch" : ""}`}
                                                 key={policyIndex}
                                             >
                                                 <div
-                                                    className="col-span-12 pr-4 pb-2 lg:p-4 lg:hover:shadow-xl border lg:hover:border-gray-300 border-transparent rounded-xl transition-all duration-200"
+                                                    className={`${showSupportColumns ? "col-span-12 lg:col-span-6" : "col-span-12"} pr-4 pb-2 lg:p-4 lg:hover:shadow-xl border lg:hover:border-gray-300 border-transparent rounded-xl transition-all duration-200`}
                                                 >
                                                     <div className="flex flex-wrap items-center gap-2 mb-2">
                                                         <p className="lg:text-lg font-medium text-gray-700">
@@ -200,7 +287,7 @@ const PoliciesPage = ({ data, location }: PageProps<PoliciesPageData>) => {
                                                     <p className="text-sm lg:text-base text-gray-600">
                                                         {policy.explanation}
                                                     </p>
-                                                    {policy.links?.strapi_json_value?.length > 0 && (() => {
+                                                    {(policy.links?.strapi_json_value?.length ?? 0) > 0 && (() => {
                                                         const policyKey = `${index}-${policyIndex}`;
                                                         const isExpanded = expandedPolicies.has(policyKey);
                                                         return (
@@ -231,6 +318,47 @@ const PoliciesPage = ({ data, location }: PageProps<PoliciesPageData>) => {
                                                         );
                                                     })()}
                                                 </div>
+                                                {showSupportColumns && (
+                                                    <div className="col-span-12 lg:col-span-6 grid grid-cols-12 gap-2 items-center px-4 py-2 lg:py-4">
+                                                        {supportParties.map((party) => {
+                                                            const support = selectedElections
+                                                                .map((election) => getPolicySupportForParty(policy, party.name, election.id))
+                                                                .find(Boolean);
+                                                            return (
+                                                                <div
+                                                                    key={party.name}
+                                                                    className="relative col-span-6 sm:col-span-4 lg:col-span-3 flex flex-col items-center justify-center rounded-xl border border-gray-200 bg-white p-2 text-center group/support"
+                                                                >
+                                                                    <span
+                                                                        className="text-xs font-semibold truncate w-full"
+                                                                        style={{ color: party.color || undefined }}
+                                                                    >
+                                                                        {party.shortName || party.name}
+                                                                    </span>
+                                                                    {support ? (
+                                                                        support.fullSupport ? (
+                                                                            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-green-500 text-white text-lg font-bold leading-none">✓</span>
+                                                                        ) : (
+                                                                            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-yellow-400 text-white text-lg font-bold leading-none">-</span>
+                                                                        )
+                                                                    ) : (
+                                                                        <span className="text-gray-300 text-xl">·</span>
+                                                                    )}
+                                                                    {support && (support.quote || support.source) && (
+                                                                        <div
+                                                                            className="pointer-events-none absolute z-20 bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 max-w-[80vw] rounded-lg bg-gray-900 text-white text-xs text-left p-3 shadow-lg opacity-0 group-hover/support:opacity-100 focus-within:opacity-100 transition-opacity duration-150"
+                                                                            role="tooltip"
+                                                                        >
+                                                                            {support.quote && <p className="italic mb-1">“{support.quote}”</p>}
+                                                                            {support.source && <p className="text-gray-300">{support.source}</p>}
+                                                                            <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
                                             </div>
                                         );
                                     })}
@@ -296,6 +424,21 @@ export const query = graphql`
                     policy_category {
                         name
                     }
+                    policy_supports {
+                        id
+                        fullSupport
+                        quote
+                        source
+                        election {
+                            id
+                            name
+                        }
+                        political_party {
+                            name
+                            shortName
+                            color
+                        }
+                    }
                 }
             }
         }
@@ -311,6 +454,21 @@ export const query = graphql`
             title
             content
             joinLink
+        }
+        elections: allStrapiElection(filter: { locale: { eq: $language } }) {
+            nodes {
+                id
+                name
+                policy_supports {
+                    id
+                    fullSupport
+                    political_party {
+                        name
+                        shortName
+                        color
+                    }
+                }
+            }
         }
         socials: strapiSocial {
             discordLink
