@@ -77,11 +77,6 @@ const PoliciesPage = ({ data, location }: PageProps<PoliciesPageData>) => {
         return new Set(raw.split(",").filter(Boolean));
     }, [location.search]);
 
-    const showElectionFilters = useMemo(() => {
-        const params = new URLSearchParams(location.search);
-        return params.get("hidden") === "false";
-    }, [location.search]);
-
     const toggleFilter = useCallback(
         (filter: string) => {
             const next = new Set(activeFilters);
@@ -219,7 +214,7 @@ const PoliciesPage = ({ data, location }: PageProps<PoliciesPageData>) => {
                                 </button>
                             ))}
                         </div>
-                        {showElectionFilters && elections.length > 0 && (
+                        {elections.length > 0 && (
                             <div className="flex flex-wrap gap-2 pb-4">
                                 {elections.map((election) => (
                                     <button
@@ -327,7 +322,7 @@ const PoliciesPage = ({ data, location }: PageProps<PoliciesPageData>) => {
                                                             return (
                                                                 <div
                                                                     key={party.name}
-                                                                    className="relative col-span-6 sm:col-span-4 lg:col-span-3 flex flex-col items-center justify-center rounded-xl border border-gray-200 bg-white p-2 text-center group/support"
+                                                                    className="relative col-span-6 sm:col-span-4 lg:col-span-2 flex flex-col items-center justify-center rounded-md border border-gray-200 bg-white p-2 text-center group/support"
                                                                 >
                                                                     <span
                                                                         className="text-xs font-semibold truncate w-full"
